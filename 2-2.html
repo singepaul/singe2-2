@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeu du Singe Sauteur</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(to top, #87CEEB, #fff);
+      font-family: Arial, sans-serif;
+    }
+
+    .game-container {
+      position: relative;
+      width: 600px;
+      height: 300px;
+      background: linear-gradient(to top, #006400, #228B22, #32CD32);
+      overflow: hidden;
+      border: 3px solid #8B4513;
+      border-radius: 10px;
+      background-position: 0 0;
+      animation: moveBackground 20s linear infinite;
+    }
+
+    @keyframes moveBackground {
+      from { background-position: 0 0; }
+      to { background-position: -600px 0; }
+    }
+
+    .score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .level {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .ground {
+      position: absolute;
+      bottom: 0;
+      width: 200%;
+      height: 40px;
+      background: rgba(139, 69, 19, 0.8);
+      box-shadow: 0 -5px 0px 0px #6D4C41;
+      animation: moveGround 1s linear infinite;
+    }
+
+    @keyframes moveGround {
+      from { left: 0; }
+      to { left: -50%; }
+    }
+
+    .monkey {
+      position: absolute;
+      bottom: 40px;
+      left: 50px;
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle, #8B4513 60%, #5D2B1F);
+      border-radius: 50%;
+      box-shadow: 0 -10px 0px 5px #8B5A2B inset, 5px 5px 5px rgba(0, 0, 0, 0.3);
+      transition: transform 0.1s ease;
+    }
+
+    .monkey::before, .monkey::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #5D2B1F;
+      border-radius: 50%;
+    }
+    .monkey::before { top: -10px; left: 5px; }
+    .monkey::after { bottom: -10px; right: 5px; }
+
+    .obstacle {
+      position: absolute;
+      bottom: 40px;
+      right: -20px;
+      width: 20px;
+      height: 40px;
+      background: #3E2723;
+      border-radius: 3px;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
+      animation: moveObstacle 2s linear infinite;
+    }
+
+    @keyframes moveObstacle {
+      from { right: -20px; }
+      to { right: 100%; }
+    }
+
+    .level-up-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 30px;
+      color: #FFD700;
+      font-weight: bold;
+      display: none;
+      z-index: 2;
+    }
+
+    /* Menu de sélection de niveau */
+    .menu {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      z-index: 2;
+    }
+
+    .menu h1 {
+      color: #fff;
+    }
+
+    .menu button {
+      background-color: #32CD32;
+      color: white;
+      font-size: 18px;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .menu button:hover {
+      background-color: #228B22;
+    }
+
+    /* Titre au-dessus du jeu */
+    .game-title {
+      font-size: 40px;
+      color: #fff;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Titre provocateur au-dessus du jeu -->
+  <div class="game-title">Sauras-tu battre le singe sauteur ?</div>
+
+  <!-- Menu de sélection de niveau -->
+  <div class="menu" id="menu">
+    <h1>Choisissez votre niveau</h1>
+    <button onclick="startGameWithLevel(1)">Niveau 1</button>
+    <button onclick="startGameWithLevel(2)">Niveau 2</button>
+    <button onclick="startGameWithLevel(3)">Niveau 3</button>
+  </div>
+
+  <!-- Jeu -->
+  <div class="game-container" id="gameContainer" style="display:none;">
+    <div class="score" id="score">Score: 0</div>
+    <div class="level" id="level">Niveau: 1</div>
+    <div class="monkey" id="monkey"></div>
+    <div class="ground"></div>
+    <div class="obstacle" id="obstacle"></div>
+    <div class="level-up-message" id="levelUpMessage">Niveau supérieur !</div>
+  </div>
+
+  <script>
+    const monkey = document.getElementById("monkey");
+    const obstacle = document.getElementById("obstacle");
+    const scoreDisplay = document.getElementById("score");
+    const levelDisplay = document.getElementById("level");
+    const levelUpMessage = document.getElementById("levelUpMessage");
+    const menu = document.getElementById("menu");
+    const gameContainer = document.getElementById("gameContainer");
+
+    let isJumping = false;
+    let score = 0;
+    let level = 1;
+    let hasScored = false;
+
+    // Animation pour faire sauter le singe
+    function jump() {
+      if (isJumping) return;
+      isJumping = true;
+      hasScored = false;
+
+      let jumpHeight = 0;
+      const jumpInterval = setInterval(() => {
+        if (jumpHeight < 150) {
+          jumpHeight += 5;
+          monkey.style.transform = `translateY(-${jumpHeight}px)`;
+        } else {
+          clearInterval(jumpInterval);
+
+          const fallInterval = setInterval(() => {
+            if (jumpHeight > 0) {
+              jumpHeight -= 5;
+              monkey.style.transform = `translateY(-${jumpHeight}px)`;
+            } else {
+              clearInterval(fallInterval);
+              isJumping = false;
+            }
+          }, 20);
+        }
+      }, 20);
+    }
+
+    // Vérification des collisions
+    function checkCollision() {
+      const monkeyRect = monkey.getBoundingClientRect();
+      const obstacleRect = obstacle.getBoundingClientRect();
+
+      if (
+        monkeyRect.x < obstacleRect.x + obstacleRect.width &&
+        monkeyRect.x + monkeyRect.width > obstacleRect.x &&
+        monkeyRect.y < obstacleRect.y + obstacleRect.height &&
+        monkeyRect.height + monkeyRect.y > obstacleRect.y
+      ) {
+        alert(`Collision ! Le singe a perdu ! Score final: ${score}`);
+        resetGame();
+      }
+    }
+
+    // Mise à jour du score et niveau
+    function updateScore() {
+      const obstacleRect = obstacle.getBoundingClientRect();
+      const monkeyRect = monkey.getBoundingClientRect();
+
+      if (obstacleRect.right < monkeyRect.left && !hasScored && isJumping) {
+        score += 1;
+        hasScored = true;
+        scoreDisplay.textContent = `Score: ${score}`;
+
+        if (score >= 35 && level === 1) {
+          level = 2;
+          levelDisplay.textContent = `Niveau: ${level}`;
+          showLevelUpMessage();
+        } else if (score >= 70 && level === 2) {
+          level = 3;
+          levelDisplay.textContent = `Niveau: ${level}`;
+          showLevelUpMessage();
+        } else if (score >= 150 && level === 3) {
+          level = 4;
+          levelDisplay.textContent = `Niveau: ${level}`;
+          showLevelUpMessage();
+        }
+      }
+
+      if (obstacleRect.right < 0) {
+        hasScored = false;
+      }
+    }
+
+    // Message de niveau supérieur
+    function showLevelUpMessage() {
+      levelUpMessage.style.display = "block";
+      setTimeout(() => {
+        levelUpMessage.style.display = "none";
+      }, 1500);
+    }
+
+    // Fonction pour démarrer le jeu avec le niveau sélectionné
+    function startGameWithLevel(selectedLevel) {
+      menu.style.display = "none";
+      gameContainer.style.display = "block";
+      score = 0;
+      level = selectedLevel;
+      scoreDisplay.textContent = `Score: ${score}`;
+      levelDisplay.textContent = `Niveau: ${level}`;
+      startGame();
+    }
+
+    // Démarrer le jeu
+    function startGame() {
+      setInterval(updateScore, 20);
+      setInterval(checkCollision, 20);
+    }
+
+    // Réinitialisation du jeu
+    function resetGame() {
+      score = 0;
+      level = 1;
+      scoreDisplay.textContent = `Score: ${score}`;
+      levelDisplay.textContent = `Niveau: ${level}`;
+      menu.style.display = "flex";
+      gameContainer.style.display = "none";
+    }
+
+    // Interactions
+    window.addEventListener("keydown", function (e) {
+      if (e.key === " " || e.key === "ArrowUp") {
+        jump();
+      }
+    });
+  </script>
+</body>
+</html>
